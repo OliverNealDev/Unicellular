@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="color-scheme" content="dark light" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image" content="https://example.com/unicellular.png" />
+    <meta property="og:title" content="Unicellular – Codebase Breakdown" />
+    <meta property="og:description" content="A cohesive, portfolio-styled breakdown of the Unicellular ECS codebase: architecture, data model, key APIs, representative snippets, and technical notes." />
+    <meta property="og:url" content="https://example.com/unicellular.html" />
+    <title>Unicellular – Codebase Breakdown</title>
+    <link rel="icon" href="oliver.webp" type="image/webp">
+
+    <!-- Fonts & Prism (match portfolio) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <!-- Keep default Prism, we'll override it below -->
+    <link rel="stylesheet"
+          href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css" />
+    <style>
+        :root {
+            --bg-color: #121212;
+            --text-color: #e0e0e0;
+            --accent-color: #FFA500;
+            --secondary-color: #ff69b4;
+            --header-bg: #222;
+            --border-color: #444;
+            --font-family: 'Roboto', sans-serif;
+            --light-bg: #1e1e1e;
+            --card-bg: #1e1e1e;
+            --button-bg: #333;
+            --button-hover-bg: #555;
+            --button-text-color: #fff;
+            --button-accent-text-color: #ffffff;
+            --main-gradient: linear-gradient(90deg, #FFA500, #FF4500);
+            --icon-color: #e0e0e0;
+            --shadow-color: rgba(0, 0, 0, 0.5);
+            --text-secondary-color: #aaa;
+            --project-link-icon-filter: none;
+            --link-icon-color: #e0e0e0;
+            --message-box-bg: #2a2a2a;
+            --message-box-border: #555;
+            --message-box-text: #e0e0e0;
+            --message-box-button-bg: #444;
+            --message-box-button-hover-bg: #666;
+            --message-box-overlay-bg: rgba(0, 0, 0, 0.7);
+            /* Prism palette (dark) */
+            --prism-plain: #e6e6e6;
+            --prism-comment: #9aa0a6;
+            --prism-red: #ff5370;
+            --prism-orange: #f78c6c;
+            --prism-green: #c3e88d;
+            --prism-blue: #82aaff;
+            --prism-purple: #c792ea;
+            --prism-yellow: #ffcb6b;
+            /* Diagram styling */
+            --diagram-grid-dark: rgba(255,255,255,0.06);
+            --diagram-grid-light: rgba(0,0,0,0.06);
+            --diagram-bg-tint-dark: linear-gradient(180deg, rgba(255,165,0,0.06), rgba(255,69,0,0.06));
+            --diagram-bg-tint-light: linear-gradient(180deg, rgba(255,165,0,0.08), rgba(255,69,0,0.08));
+            --diagram-shadow: 0 10px 30px rgba(0,0,0,0.35);
+            --diagram-border: rgba(255,255,255,0.08);
+        }
+
+        .light-theme {
+            --bg-color: #ffffff;
+            --text-color: #333333;
+            --accent-color: #FFA500;
+            --header-bg: #f5f5f5;
+            --border-color: #ddd;
+            --light-bg: #fefefe;
+            --card-bg: #ffffff;
+            --button-bg: #eee;
+            --button-hover-bg: #ddd;
+            --button-text-color: #333;
+            --button-accent-text-color: #ffffff;
+            --main-gradient: linear-gradient(90deg, #FFA500, #FF4500);
+            --icon-color: #333333;
+            --shadow-color: rgba(0, 0, 0, 0.1);
+            --text-secondary-color: #555;
+            --project-link-icon-filter: none;
+            --link-icon-color: #333333;
+            --message-box-bg: #ffffff;
+            --message-box-border: #ccc;
+            --message-box-text: #333333;
+            --message-box-button-bg: #eee;
+            --message-box-button-hover-bg: #ddd;
+            --message-box-overlay-bg: rgba(0, 0, 0, 0.5);
+            /* Prism palette (light) */
+            --prism-plain: #2b2b2b;
+            --prism-comment: #6a737d;
+            --prism-red: #d12f1b;
+            --prism-orange: #b34f00;
+            --prism-green: #22863a;
+            --prism-blue: #005cc5;
+            --prism-purple: #6f42c1;
+            --prism-yellow: #b08800;
+            --diagram-grid-dark: rgba(0,0,0,0.06); /* reused as light grid */
+            --diagram-bg-tint-dark: var(--diagram-bg-tint-light);
+            --diagram-border: rgba(0,0,0,0.08);
+        }
+
+        /* Base (match portfolio) */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+        }
+
+        body {
+            font-family: var(--font-family);
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            overflow-x: hidden;
+            transition: background-color 0.3s ease, color 0.3s ease;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            text-rendering: optimizeLegibility;
+        }
+
+        h1, h2, h3 {
+            color: var(--text-color);
+        }
+
+        body, h1, h2, h3, p, a, li, code, pre, table, th, td {
+            text-shadow: none !important;
+            -webkit-text-stroke: 0 !important;
+        }
+        code[class*="language-"], pre[class*="language-"], .token {
+            text-shadow: none !important;
+        }
+
+        header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background-color: var(--header-bg);
+            color: var(--text-color);
+            padding: 0.75rem 0;
+            z-index: 999;
+            box-shadow: 0 2px 4px var(--shadow-color);
+            transition: background-color 0.3s ease;
+        }
+        .nav-container {
+            width: 90%;
+            max-width: 1100px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: nowrap;
+        }
+        .logo-and-icons {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-shrink: 0;
+        }
+        .nav-logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            white-space: nowrap;
+            color: var(--text-color);
+        }
+        .nav-icons {
+            display: flex;
+            gap: 0.75rem;
+            align-items: center;
+        }
+        .nav-icons a {
+            display: block;
+            width: 24px;
+            height: 24px;
+            line-height: 24px;
+        }
+        .nav-icons img {
+            display: block;
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+            transition: opacity 0.2s ease, filter 0.3s ease;
+        }
+        .nav-icons img:hover {
+            opacity: 0.7;
+        }
+        .light-theme .nav-icons a[href*="github.com/OliverNealDev"] img {
+            filter: invert(1);
+        }
+        header nav {
+            margin-left: auto;
+            margin-right: 1rem;
+            text-align: right;
+        }
+        header nav ul {
+            list-style: none;
+            display: inline-flex;
+            gap: 1.2rem;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: nowrap;
+            padding: 0;
+            margin: 0;
+        }
+        header nav a {
+            color: var(--text-color);
+            text-decoration: none;
+            font-weight: bold;
+            transition: none;
+            padding: 0.2rem 0;
+            white-space: nowrap;
+        }
+        header nav a.active-nav, header nav a:hover {
+            background: var(--main-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+        .theme-toggle {
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+        }
+        .theme-checkbox {
+            --toggle-size: 10px;
+            appearance: none;
+            width: 3.75em;
+            height: 1.875em;
+            background: linear-gradient(to right, #efefef 50%, #2a2a2a 50%) no-repeat;
+            background-size: 205%;
+            background-position: 0;
+            transition: 0.4s;
+            border-radius: 99em;
+            position: relative;
+            cursor: pointer;
+            font-size: var(--toggle-size);
+            border: 1px solid var(--border-color);
+            display: block;
+        }
+        .theme-checkbox::before {
+            content: "";
+            width: 1.35em;
+            height: 1.35em;
+            position: absolute;
+            top: 0.263em;
+            left: 0.263em;
+            background: linear-gradient(to right, #efefef 50%, #2a2a2a 50%) no-repeat;
+            background-size: 205%;
+            background-position: 100%;
+            border-radius: 50%;
+            transition: 0.4s;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.2);
+        }
+        .theme-checkbox:checked::before {
+            left: calc(100% - 1.35em - 0.263em);
+            background-position: 0;
+        }
+        .theme-checkbox:checked {
+            background-position: 100%;
+        }
+        main {
+            width: 90%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding-top: 100px;
+        }
+        .reveal {
+            opacity: 0;
+            transform: translateY(30px);
+            transition: opacity 0.8s ease-out, transform 0.8s ease-out;
+            will-change: opacity, transform;
+        }
+        .reveal.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .page-hero {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+        .breadcrumb {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.9rem;
+            color: var(--text-secondary-color);
+        }
+        .breadcrumb a {
+            color: var(--text-color);
+            text-decoration: none;
+            border-bottom: 1px dashed transparent;
+        }
+        .breadcrumb a:hover {
+            border-bottom-color: var(--accent-color);
+            background: var(--main-gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+        }
+        .page-title h1 {
+            font-size: 2rem;
+            margin: 0;
+        }
+        .page-sub {
+            color: var(--text-secondary-color);
+        }
+        .doc-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 0.5rem;
+        }
+        .doc-actions a {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 0.45rem 0.8rem;
+            background: var(--button-bg);
+            color: var(--button-text-color);
+            text-decoration: none;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            font-size: 0.9rem;
+        }
+        .doc-actions a:hover {
+            background: var(--button-hover-bg);
+            border-color: var(--accent-color);
+        }
+        .doc-actions img, .doc-actions svg {
+            width: 16px;
+            height: 16px;
+            vertical-align: middle;
+        }
+        .doc-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 1.25rem;
+        }
+        .doc-card {
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            box-shadow: 0 2px 8px var(--shadow-color);
+            padding: 1.25rem;
+        }
+        .doc-card h2 {
+            font-size: 1.4rem;
+            margin: 0 0 0.75rem 0;
+            border-bottom: 2px solid var(--border-color);
+            padding-bottom: 0.5rem;
+        }
+        .doc-card h3 {
+            font-size: 1.1rem;
+            margin: 1rem 0 0.5rem;
+        }
+        .doc-table-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 0.5rem;
+            border: 1px solid var(--border-color);
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-top: 1px solid var(--border-color);
+        }
+        th {
+            background: var(--light-bg);
+            font-weight: 700;
+        }
+        tr:nth-child(even) td {
+            background: rgba(255,255,255,0.02);
+        }
+        details {
+            margin-top: 0.75rem;
+        }
+        details summary {
+            cursor: pointer;
+            font-weight: 600;
+            background: var(--light-bg);
+            padding: 0.6rem 0.75rem;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+        }
+        details[open] summary {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+        }
+        pre[class*="language-"] {
+            background: var(--card-bg) !important;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            box-shadow: inset 0 0 0 rgba(0,0,0,0);
+            padding: 1rem !important;
+            overflow: auto;
+        }
+        code[class*="language-"], pre[class*="language-"] {
+            color: var(--prism-plain) !important;
+        }
+        code, pre, kbd, samp {
+            background: transparent;
+        }
+        pre[class*="language-"] > code {
+            background: transparent !important;
+        }
+        .token, .namespace {
+            background: transparent !important;
+        }
+        pre[class*="language-"] ::selection,
+        code[class*="language-"] ::selection {
+            background: rgba(255,255,255,0.08);
+        }
+        .token.comment, .token.prolog, .token.doctype, .token.cdata {
+            color: var(--prism-comment) !important;
+        }
+        .token.punctuation {
+            color: var(--prism-plain) !important;
+            background: transparent !important;
+        }
+        .token.operator {
+            color: var(--prism-plain) !important;
+            background: transparent !important;
+        }
+        .token.boolean, .token.number {
+            color: var(--prism-orange) !important;
+        }
+        .token.property, .token.tag, .token.constant, .token.symbol, .token.deleted {
+            color: var(--prism-red) !important;
+        }
+        .token.selector, .token.attr-name, .token.string, .token.char, .token.builtin, .token.inserted {
+            color: var(--prism-green) !important;
+        }
+        .token.function, .token.class-name {
+            color: var(--prism-blue) !important;
+        }
+        .token.keyword {
+            color: var(--prism-purple) !important;
+            font-weight: 500;
+        }
+        .token.regex, .token.important, .token.variable {
+            color: var(--prism-yellow) !important;
+        }
+        .token.bold {
+            font-weight: bold;
+        }
+        .token.italic {
+            font-style: italic;
+        }
+        :not(pre) > code:not([class*="language-"]) {
+            background: rgba(127,127,127,0.15);
+            padding: 0.15em 0.35em;
+            border-radius: 4px;
+            color: var(--text-color);
+        }
+        .doc-toc {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 0.6rem;
+        }
+        .doc-toc a {
+            font-size: 0.9rem;
+            text-decoration: none;
+            color: var(--text-color);
+            padding: 0.35rem 0.6rem;
+            border-radius: 4px;
+            border: 1px solid transparent;
+            background: var(--button-bg);
+        }
+        .doc-toc a:hover {
+            background: var(--button-hover-bg);
+            border-color: var(--accent-color);
+        }
+        footer {
+            text-align: center;
+            padding: 1.5rem 0;
+            margin-top: 3rem;
+            border-top: 1px solid var(--border-color);
+            color: var(--text-secondary-color);
+            font-size: 0.9rem;
+        }
+        @media (max-width: 768px) {
+            .nav-container {
+                flex-direction: row;
+                flex-wrap: wrap;
+                align-items: center;
+                gap: 0.5rem 1rem;
+                justify-content: space-between;
+            }
+            header nav {
+                margin-left: 0;
+                margin-right: 0;
+                text-align: left;
+                width: 100%;
+                order: 3;
+                flex-basis: 100%;
+            }
+            header nav ul {
+                justify-content: flex-start;
+                gap: 0.8rem;
+                flex-wrap: wrap;
+                display: flex;
+            }
+            .theme-toggle {
+                order: 2;
+            }
+            main {
+                padding-top: 120px;
+            }
+        }
+        @media (max-width: 600px) {
+            .nav-container {
+                gap: 0.5rem;
+            }
+            header nav ul {
+                gap: 0.5rem;
+            }
+            .page-title h1 {
+                font-size: 1.7rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="nav-container">
+            <div class="logo-and-icons">
+                <div class="nav-logo">Oliver Neal</div>
+                <div class="nav-icons">
+                    <a href="https://github.com/OliverNealDev" target="_blank" title="GitHub">
+                        <img src="github-icon.webp" alt="GitHub" onerror="this.style.display='none'" loading="lazy" />
+                    </a>
+                    <a href="https://embitgames.itch.io" target="_blank" title="Itch.io">
+                        <img src="itch-icon.webp" alt="Itch.io" onerror="this.style.display='none'" loading="lazy" />
+                    </a>
+                    <a href="https://www.linkedin.com/in/oliver-neal-197b74290/" target="_blank" title="LinkedIn">
+                        <img src="linkedin-icon.webp" alt="LinkedIn" onerror="this.style.display='none'" loading="lazy" />
+                    </a>
+                </div>
+            </div>
+            <nav>
+                <ul>
+                </ul>
+            </nav>
+            <div class="theme-toggle">
+                <input type="checkbox" class="theme-checkbox" id="themeToggle" title="Toggle Theme">
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="page-hero reveal">
+            <div class="breadcrumb">
+                <span>←</span>
+                <a href="index.html#solo-projects" title="Back to Portfolio">Back to Portfolio</a>
+            </div>
+            <div class="page-title">
+                <h1>Unicellular – Manager-Driven ECS</h1>
+                <p class="page-sub">Codebase Breakdown • Unity • Custom ECS • Simulation</p>
+            </div>
+            <div class="doc-actions">
+                <a href="https://github.com/OliverNealDev/UnicellularRebuiltECS" target="_blank" title="View GitHub" class="github">
+                    <img src="github-icon.webp" alt="GitHub icon" onerror="this.style.display='none'" loading="lazy" /> View on GitHub
+                </a>
+            </div>
+        </section>
+
+        <nav class="doc-toc reveal" aria-label="On this page">
+            <a href="#overview">Overview</a>
+            <a href="#architecture">Architecture</a>
+            <a href="#data-model">Data Model</a>
+            <a href="#apis">Key APIs</a>
+            <a href="#snippets">Code Snippets</a>
+            <a href="#performance">Performance</a>
+            <a href="#testing">Testing</a>
+            <a href="#tradeoffs">Trade-offs</a>
+        </nav>
+
+        <div class="doc-grid">
+            <section id="overview" class="doc-card reveal">
+                <h2>Overview</h2>
+                <p>
+                    A 2D life simulation where colourful unicells roam, fight, and evolve. The project uses a manager-driven ECS-style architecture in Unity to keep systems modular and scalable.
+                </p>
+            </section>
+
+            <section id="architecture" class="doc-card reveal">
+                <h2>Architecture</h2>
+                <p>Gameplay is coordinated by specialised managers handling entities, economy, camera and UI.</p>
+            </section>
+
+            <section id="data-model" class="doc-card reveal">
+                <h2>Data Model</h2>
+                <p>Persistent statistics for each unicell are stored in a simple serialisable class.</p>
+                <div class="doc-table-wrapper">
+                    <table>
+                        <thead>
+                            <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                            <tr><td>Species</td><td>string</td><td>Identifier for the unicell species</td></tr>
+                            <tr><td>Damage</td><td>float</td><td>Base attack damage</td></tr>
+                            <tr><td>MaxHealth</td><td>float</td><td>Maximum health value</td></tr>
+                            <tr><td>Level</td><td>int</td><td>Current evolution level</td></tr>
+                            <tr><td>XP</td><td>float</td><td>Accumulated experience points</td></tr>
+                            <tr><td>XP_Threshold</td><td>int</td><td>XP required for next level</td></tr>
+                            <tr><td>BaseScale</td><td>Vector2</td><td>Default sprite scale</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="apis" class="doc-card reveal">
+                <h2>Key APIs / Contracts</h2>
+                <h3>Entity Manager</h3>
+                <pre><code class="language-csharp">public void SpawnUnicells(UnicellSpecies species, int amount);</code></pre>
+                <h3>Economy Manager</h3>
+                <pre><code class="language-csharp">public void IncrementUnicellPopulation(string unicellType);</code></pre>
+            </section>
+
+            <section id="snippets" class="doc-card reveal">
+                <h2>Representative Code Snippets</h2>
+
+                <p><strong>Spawning species-specific cells</strong> – loops through count and initialises each with the correct prefab.</p>
+                <details>
+                    <summary>Show code</summary>
+<pre><code class="language-csharp">@EntityManager.cs lines 1422-1468
+public void SpawnUnicells(UnicellSpecies species, int Amount)
+{
+    for (int x = 0; x &lt; Amount; x++)
+    {
+        switch (species)
+        {
+            case UnicellSpecies.Blue:
+                initialUnicell = Instantiate(blueUnicellPrefab).GetComponent&lt;Unicell&gt;();
+                initialUnicell.transform.parent = BlueUnicellsGameObject.transform;
+                Initialise(initialUnicell, Unicell.UnicellSpecies.Blue);
+                break;
+            case UnicellSpecies.Pink:
+                initialUnicell = Instantiate(pinkUnicellPrefab).GetComponent&lt;Unicell&gt;();
+                initialUnicell.transform.parent = PinkUnicellsGameObject.transform;
+                Initialise(initialUnicell, Unicell.UnicellSpecies.Pink);
+                break;
+            case UnicellSpecies.Yellow:
+                initialUnicell = Instantiate(yellowUnicellPrefab).GetComponent&lt;Unicell&gt;();
+                initialUnicell.transform.parent = YellowUnicellsGameObject.transform;
+                Initialise(initialUnicell, Unicell.UnicellSpecies.Yellow);
+                break;
+            case UnicellSpecies.Green:
+                initialUnicell = Instantiate(greenUnicellPrefab).GetComponent&lt;Unicell&gt;();
+                initialUnicell.transform.parent = GreenUnicellsGameObject.transform;
+                Initialise(initialUnicell, Unicell.UnicellSpecies.Green);
+                break;
+            case UnicellSpecies.Purple:
+                initialUnicell = Instantiate(purpleUnicellPrefab).GetComponent&lt;Unicell&gt;();
+                initialUnicell.transform.parent = PurpleUnicellsGameObject.transform;
+                Initialise(initialUnicell, Unicell.UnicellSpecies.Purple);
+                break;
+            case UnicellSpecies.Red:
+                initialUnicell = Instantiate(redUnicellPrefab).GetComponent&lt;Unicell&gt;();
+                initialUnicell.transform.parent = RedUnicellsGameObject.transform;
+                Initialise(initialUnicell, Unicell.UnicellSpecies.Red);
+                break;
+            case UnicellSpecies.Orange:
+                initialUnicell = Instantiate(orangeUnicellPrefab).GetComponent&lt;Unicell&gt;();
+                initialUnicell.transform.parent = OrangeUnicellsGameObject.transform;
+                Initialise(initialUnicell, Unicell.UnicellSpecies.Orange);
+                break;
+        }
+        initialUnicell.transform.position = new Vector2((Random.value * Amount * 10) - (Amount / 2f), (Random.value * Amount * 10) - (Amount / 2f));
+        initialUnicell.CurrentState = UnicellState.Idle;
+        RegisterUnicell(initialUnicell);
+    }
+}</code></pre>
+                </details>
+                <p><a href="https://github.com/OliverNealDev/UnicellularRebuiltECS/blob/main/Assets/Scripts/Managers/UnicellManager/EntityManager.cs#L1422-L1468" target="_blank">View on GitHub (lines 1422–1468)</a></p>
+
+                <p><strong>Adjusting target populations</strong> – ensures economy goals drive spawning needs.</p>
+                <details>
+                    <summary>Show code</summary>
+<pre><code class="language-csharp">@EconomyManager.cs lines 901-930
+public void IncrementUnicellPopulation(string UnicellType)
+{
+    switch (UnicellType)
+    {
+        case "Blue":
+            TargetBlueUnicellPopulation++;
+            break;
+        case "Pink":
+            TargetPinkUnicellPopulation++;
+            break;
+        case "Yellow":
+            TargetYellowUnicellPopulation++;
+            break;
+        case "Green":
+            TargetGreenUnicellPopulation++;
+            break;
+        case "Purple":
+            TargetPurpleUnicellPopulation++;
+            break;
+        case "Red":
+            TargetRedUnicellPopulation++;
+            break;
+        case "Orange":
+            TargetOrangeUnicellPopulation++;
+            break;
+        default:
+            Debug.LogError("EconomyManager IncrementUnicellPopulation() - Unknown UnicellType for target population incrementation");
+            break;
+    }
+}</code></pre>
+                </details>
+                <p><a href="https://github.com/OliverNealDev/UnicellularRebuiltECS/blob/main/Assets/Scripts/Managers/EconomyManager.cs#L901-L930" target="_blank">View on GitHub (lines 901–930)</a></p>
+            </section>
+
+            <section id="performance" class="doc-card reveal">
+                <h2>Performance Notes</h2>
+                <p>Initial profiling focuses on entity spawning and per-frame manager updates; further optimisation is ongoing.</p>
+            </section>
+
+            <section id="testing" class="doc-card reveal">
+                <h2>Testing &amp; Validation</h2>
+                <p>Functionality is verified through manual playtesting; automated unit tests are not yet available.</p>
+            </section>
+
+            <section id="tradeoffs" class="doc-card reveal">
+                <h2>Trade-offs &amp; Next Steps</h2>
+                <ul style="margin-left:1.25rem;">
+                    <li>Custom ECS managers keep code familiar but lack the memory benefits of DOTS.</li>
+                    <li>Heavy reliance on serialised data simplifies tweaking yet increases boilerplate.</li>
+                    <li>Future work includes adding AI behaviours and automated performance tests.</li>
+                </ul>
+            </section>
+        </div>
+    </main>
+
+    <footer>
+        &copy; 2025 Oliver Neal. All rights reserved.
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js" defer></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js" defer></script>
+
+    <script defer>
+        function throttle(func, limit) {
+            let lastFunc; let lastRan;
+            return function (...args) {
+                const context = this;
+                if (!lastRan) { func.apply(context, args); lastRan = Date.now(); }
+                else {
+                    clearTimeout(lastFunc);
+                    lastFunc = setTimeout(function () {
+                        if ((Date.now() - lastRan) >= limit) { func.apply(context, args); lastRan = Date.now(); }
+                    }, limit - (Date.now() - lastRan));
+                }
+            }
+        }
+        const themeToggle = document.getElementById('themeToggle');
+        const html = document.documentElement;
+        function applyTheme(theme) {
+            if (theme === 'light') { html.classList.add('light-theme'); themeToggle.checked = true; }
+            else { html.classList.remove('light-theme'); themeToggle.checked = false; }
+        }
+        const savedTheme = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const initialTheme = savedTheme ? savedTheme : (prefersDark ? 'dark' : 'light');
+        applyTheme(initialTheme);
+        themeToggle.addEventListener('change', () => {
+            const newTheme = themeToggle.checked ? 'light' : 'dark';
+            applyTheme(newTheme);
+            localStorage.setItem('theme', newTheme);
+        });
+        function revealSections() {
+            const reveals = document.querySelectorAll('.reveal');
+            const windowHeight = window.innerHeight;
+            const elementVisibleThreshold = 100;
+            reveals.forEach(el => {
+                const elementTop = el.getBoundingClientRect().top;
+                if (elementTop < windowHeight - elementVisibleThreshold) {
+                    el.classList.add('visible');
+                }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', () => { revealSections(); });
+        window.addEventListener('scroll', throttle(revealSections, 150));
+    </script>
+</body>
+</html>
